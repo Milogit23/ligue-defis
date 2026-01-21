@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Ligue des Défis</title>
+<style>
+body {
+  font-family: Arial, sans-serif;
+  background: #111;
+  color: #eee;
+  display: flex;
+  justify-content: center;
+  padding: 20px;
+}
+
+.container {
+  max-width: 600px;
+  width: 100%;
+  background: #1c1c1c;
+  padding: 20px;
+  border-radius: 10px;
+}
+
+h1, h2 {
+  text-align: center;
+}
+
+.player {
+  background: #2a2a2a;
+  padding: 12px;
+  border-radius: 8px;
+  margin-bottom: 8px;
+  cursor: pointer;
+}
+
+.player:hover {
+  background: #333;
+}
+
+.history {
+  margin-top: 8px;
+  background: #1a1a1a;
+  border-radius: 6px;
+  padding: 6px;
+}
+
+.history table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.history th, .history td {
+  padding: 5px;
+  border-bottom: 1px solid #333;
+  text-align: center;
+}
+
+form input, form select, form button {
+  width: 100%;
+  margin-bottom: 8px;
+  padding: 8px;
+  border-radius: 5px;
+  border: none;
+}
+
+form button {
+  background: #2ecc71;
+  font-weight: bold;
+  cursor: pointer;
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+  <h1>🏆 Ligue des Défis</h1>
+
+  <div id="players"></div>
+
+  <h2>➕ Nouveau défi</h2>
+  <form onsubmit="addChallenge(event)">
+    <select id="playerSelect"></select>
+    <input id="challengeName" placeholder="Nom du défi" required>
+    <input id="rate" type="number" step="0.5" placeholder="Points par action (ex : 0.5)" required>
+    <input id="count" type="number" placeholder="Nombre réussi" required>
+    <button>Valider le défi</button>
+  </form>
+</div>
+
+<script>
+let players = JSON.parse(localStorage.getItem("players")) || [
+  { name: "Milo", score: 0 },
+  { name: "Joueur 2", score: 0 },
+  { name: "Joueur 3", score: 0 },
+  { name: "Joueur 4", score: 0 }
+];
+
+let history = JSON.parse(localStorage.getItem("history")) || [];
+let openedPlayer = null;
+
+function save() {
+  localStorage.setItem("players", JSON.stringify(players));
+  localStorage.setItem("history", JSON.stringify(history));
+}
+
+function render() {
+  players.sort((a, b) => b.score - a.score);
+
+  const container = document.getElementById("players");
+  const select = document.getElementById("playerSelect");
+
+  container.innerHTML = "";
+  select.innerHTML = "";
+
+  players.forEach((p, index) => {
+    select.innerHTML += `<option value="${p.name}">${p.name}</option>`;
+
+    const div = document.createElement("div");
+    div.className = "player";
+    div.innerHTML = `<strong>${index + 1}. ${p.name}</strong> — ${p.score} pts`;
+    div.onclick = () => toggleHistory(p.name, div);
+
+    if (openedPlayer === p.name) {
+      div.appendChild(renderHistory(p.name));
+    }
+
+    container.appendChild(div);
+  });
+
+  save();
+}
+
+function renderHistory(playerName) {
+  const div = document.createElement("div");
+  div.className = "history";
+
+  const rows = history.filter(h => h.player === playerName);
+
+  if (rows.length === 0) {
+    div.innerHTML = "<em>Aucun défi enregistré</em>";
+    return div;
+  }
+
+  let html = `
+    <table>
+      <tr>
+        <th>Défi</th>
+        <th>Barème</th>
+        <th>Réalisé</th>
+        <th>Points</th>
+      </tr>
+  `;
+
+  rows.forEach(h => {
+    html += `
+      <tr>
+        <td>${h.challenge}</td>
+        <td>${h.rate}</td>
+        <td>${h.count}</td>
+        <td>${h.points}</td>
+      </tr>
+    `;
+  });
+
+  html += "</table>";
+  div.innerHTML = html;
+  return div;
+}
+
+function toggleHistory(name) {
+  openedPlayer = openedPlayer === name ? null : name;
+  render();
+}
+
+function addChallenge(e) {
+  e.preventDefault();
+
+  const playerName = playerSelect.value;
+  const challenge = challengeName.value;
+  const rate = parseFloat(rateInput.value);
+  const count = parseInt(countInput.value);
+
+  const points = Math.round(rate * count * 2) / 2;
+
+  const player = players.find(p => p.name === playerName);
+  player.score += points;
+
+  history.unshift({ player: playerName, challenge, rate, count, points });
+
+  e.target.reset();
+  render();
+}
+
+const rateInput = document.getElementById("rate");
+const countInput = document.getElementById("count");
+
+render();
+</script>
+
+</body>
+</html>
