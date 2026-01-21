@@ -12,50 +12,41 @@ body {
   justify-content: center;
   padding: 20px;
 }
-
 .container {
-  max-width: 600px;
+  max-width: 650px;
   width: 100%;
   background: #1c1c1c;
   padding: 20px;
   border-radius: 10px;
 }
-
-h1, h2 {
-  text-align: center;
-}
-
+h1, h2 { text-align: center; }
 .player {
   background: #2a2a2a;
   padding: 12px;
   border-radius: 8px;
   margin-bottom: 8px;
   cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
-
-.player:hover {
-  background: #333;
-}
-
+.player:hover { background: #333; }
 .history {
   margin-top: 8px;
   background: #1a1a1a;
   border-radius: 6px;
   padding: 6px;
 }
-
 .history table {
   width: 100%;
   border-collapse: collapse;
   font-size: 13px;
 }
-
 .history th, .history td {
   padding: 5px;
   border-bottom: 1px solid #333;
   text-align: center;
 }
-
 form input, form select, form button {
   width: 100%;
   margin-bottom: 8px;
@@ -63,12 +54,12 @@ form input, form select, form button {
   border-radius: 5px;
   border: none;
 }
-
-form button {
-  background: #2ecc71;
-  font-weight: bold;
-  cursor: pointer;
-}
+form button { background: #2ecc71; font-weight: bold; cursor: pointer; }
+.nameInput { width: 60%; padding: 5px; border-radius: 5px; border: none; }
+.renameBtn { padding: 5px 10px; margin-left: 5px; border: none; border-radius: 5px; background: #3498db; cursor: pointer; }
+.renameBtn:hover { opacity: 0.8; }
+.deleteBtn { padding: 5px 10px; margin-left: 5px; border: none; border-radius: 5px; background: #e74c3c; cursor: pointer; }
+.deleteBtn:hover { opacity: 0.8; }
 </style>
 </head>
 <body>
@@ -85,6 +76,12 @@ form button {
     <input id="rate" type="number" step="0.5" placeholder="Points par action (ex : 0.5)" required>
     <input id="count" type="number" placeholder="Nombre réussi" required>
     <button>Valider le défi</button>
+  </form>
+
+  <h2>➕ Ajouter un joueur</h2>
+  <form onsubmit="addPlayer(event)">
+    <input id="newPlayerName" placeholder="Nom du joueur" required>
+    <button>Ajouter joueur</button>
   </form>
 </div>
 
@@ -118,8 +115,22 @@ function render() {
 
     const div = document.createElement("div");
     div.className = "player";
-    div.innerHTML = `<strong>${index + 1}. ${p.name}</strong> — ${p.score} pts`;
-    div.onclick = () => toggleHistory(p.name, div);
+
+    div.innerHTML = `
+      <div style="display:flex; align-items:center;">
+        <strong>${index + 1}. </strong>
+        <input class="nameInput" value="${p.name}" onchange="renamePlayer(${index}, this.value)">
+        — ${p.score} pts
+      </div>
+      <div>
+        <button class="deleteBtn" onclick="deletePlayer(${index}, event)">Supprimer</button>
+      </div>
+    `;
+
+    div.onclick = (e) => {
+      if (e.target.classList.contains("nameInput") || e.target.classList.contains("deleteBtn")) return;
+      toggleHistory(p.name, div);
+    }
 
     if (openedPlayer === p.name) {
       div.appendChild(renderHistory(p.name));
@@ -129,6 +140,26 @@ function render() {
   });
 
   save();
+}
+
+function renamePlayer(index, newName) {
+  if (!newName.trim()) return;
+  const oldName = players[index].name;
+  players[index].name = newName.trim();
+  history.forEach(h => {
+    if (h.player === oldName) h.player = newName.trim();
+  });
+  render();
+}
+
+function deletePlayer(index, event) {
+  event.stopPropagation();
+  if (!confirm(`Supprimer ${players[index].name} et tous ses défis ?`)) return;
+  const name = players[index].name;
+  players.splice(index,1);
+  history = history.filter(h => h.player !== name);
+  if (openedPlayer === name) openedPlayer = null;
+  render();
 }
 
 function renderHistory(playerName) {
@@ -149,16 +180,18 @@ function renderHistory(playerName) {
         <th>Barème</th>
         <th>Réalisé</th>
         <th>Points</th>
+        <th>Action</th>
       </tr>
   `;
 
-  rows.forEach(h => {
+  rows.forEach((h, i) => {
     html += `
       <tr>
         <td>${h.challenge}</td>
         <td>${h.rate}</td>
         <td>${h.count}</td>
         <td>${h.points}</td>
+        <td><button class="deleteBtn" onclick="deleteChallenge(${i}, event)">Supprimer</button></td>
       </tr>
     `;
   });
@@ -168,6 +201,16 @@ function renderHistory(playerName) {
   return div;
 }
 
+function deleteChallenge(index, event) {
+  event.stopPropagation();
+  if (!confirm("Supprimer ce défi ?")) return;
+  const removed = history.splice(index,1)[0];
+  const player = players.find(p => p.name === removed.player);
+  player.score -= removed.points;
+  player.score = Math.round(player.score*2)/2;
+  render();
+}
+
 function toggleHistory(name) {
   openedPlayer = openedPlayer === name ? null : name;
   render();
@@ -175,12 +218,10 @@ function toggleHistory(name) {
 
 function addChallenge(e) {
   e.preventDefault();
-
   const playerName = playerSelect.value;
   const challenge = challengeName.value;
   const rate = parseFloat(rateInput.value);
   const count = parseInt(countInput.value);
-
   const points = Math.round(rate * count * 2) / 2;
 
   const player = players.find(p => p.name === playerName);
@@ -189,6 +230,15 @@ function addChallenge(e) {
   history.unshift({ player: playerName, challenge, rate, count, points });
 
   e.target.reset();
+  render();
+}
+
+function addPlayer(e) {
+  e.preventDefault();
+  const name = document.getElementById("newPlayerName").value.trim();
+  if (!name) return;
+  players.push({ name, score:0 });
+  document.getElementById("newPlayerName").value = "";
   render();
 }
 
